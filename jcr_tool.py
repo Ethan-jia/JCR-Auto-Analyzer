@@ -74,13 +74,6 @@ OUTPUT_DIR = "downloads"
 LOG_DIR = "logs"
 
 
-#  本地保留原始内容（不修改你的本地文件）
-#  git config filter.local-config.smudge 'cat'
-# ==========================================
-CHROME_PATH = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
-INPUT_EXCEL_NAME = 'Eligible+journals.xlsx'
-HEADLESS_MODE = False
-# LOCAL_CONFIG_END
 
 
 # ==========================================
