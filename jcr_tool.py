@@ -27,7 +27,7 @@
    USM CAMPUS NETWORK REQUIRED: 
    > Please verify your USM WiFi connection immediately.
 
-   "Code is like humor. When you have to explain it, it’s bad."
+   "Code is like humor. When you have to explain it, it's bad."
    
 ==============================================================================
 """
@@ -53,7 +53,7 @@ CHROME_PATH = ''
 
 # Input Excel Settings (Must be in the same folder as this script)
 # Name of your raw excel file
-INPUT_EXCEL_NAME = 'input_journals.xlsx'
+INPUT_EXCEL_NAME = ''
 
 # Header Row Index (0-based)
 # If the Excel has a logo/title in the first 5 rows, the real header is on Row 6.
@@ -72,6 +72,16 @@ HEADLESS_MODE = True
 # Output Paths
 OUTPUT_DIR = "downloads"
 LOG_DIR = "logs"
+
+
+#  本地保留原始内容（不修改你的本地文件）
+#  git config filter.local-config.smudge 'cat'
+# ==========================================
+CHROME_PATH = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+INPUT_EXCEL_NAME = 'Eligible+journals.xlsx'
+HEADLESS_MODE = False
+# LOCAL_CONFIG_END
+
 
 # ==========================================
 #           SYSTEM INIT
@@ -227,14 +237,53 @@ def close_cookie_popup(page):
         pass
 
 
-def run_spider():
-    tasks = load_tasks()
+def get_completed_issns():
+    completed = set()
+    files = glob.glob(os.path.join(OUTPUT_PATH, '*.jsonl'))
+    logger.info(f"📂 Scanning {len(files)} history files for resume...")
 
-    if not tasks:
+    for f in files:
+        try:
+            with open(f, 'r', encoding='utf-8') as file:
+                for line in file:
+                    if line.strip():
+                        try:
+                            data = json.loads(line)
+                            issn = data.get('issn')
+                            if issn:
+                                completed.add(str(issn).strip())
+                        except:
+                            pass
+        except Exception:
+            pass
+    return completed
+
+
+def run_spider():
+    all_tasks = load_tasks()
+
+    if not all_tasks:
         logger.warning("⚠️ No tasks to process (Check Excel file or Filter).")
         logger.info("🛑 Exiting script now...")
 
         sys.exit(0)
+
+    completed_issns = get_completed_issns()
+
+    tasks_to_do = [t for t in all_tasks if t['eISSN'] not in completed_issns]
+    skipped_count = len(all_tasks) - len(tasks_to_do)
+
+    if skipped_count > 0:
+        logger.success(
+            f"⏭️  Auto-Resume: Skipped {skipped_count} already downloaded journals.")
+
+    if not tasks_to_do:
+        logger.success(
+            "🎉 All tasks are already completed! Going straight to Analysis.")
+        return
+
+    logger.info(
+        f"🚀 Starting Spider for remaining {len(tasks_to_do)} journals...")
 
     engine = BrowserEngine()
     page = engine.start()
@@ -249,8 +298,8 @@ def run_spider():
 
     close_cookie_popup(page)
 
-    total = len(tasks)
-    for idx, task in enumerate(tasks):
+    total = len(tasks_to_do)
+    for idx, task in enumerate(tasks_to_do):
         issn = task.get("eISSN")
         title = task.get("Journal Title")
         logger.info(f"[{idx+1}/{total}] Processing: {title} ({issn})")
@@ -347,6 +396,11 @@ def run_spider():
                     pass
                 sys.exit(1)
 
+    if page:
+        try:
+            page.quit()
+        except:
+            pass
     logger.success(">>> Spider Task Completed.")
 
 # ==========================================
